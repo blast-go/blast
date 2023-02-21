@@ -13,28 +13,44 @@ type Tensor[T constraints.Number] struct {
 	shape    []uint
 }
 
-func NewTensor[T constraints.Number](dimensions ...uint) *Tensor[T] {
-	size := uint(1)
-
-	if len(dimensions) != 0 {
-		for _, d := range dimensions {
-			size *= d
+func Zeros[T constraints.Number](shape []uint) (*Tensor[T], error) {
+	size := 1
+	for i, d := range shape {
+		if d == 0 {
+			return nil, fmt.Errorf("dimension %d can't be zero", i)
 		}
-	} else {
-		dimensions = []uint{1}
+		size *= int(d)
 	}
 
-	return &Tensor[T]{
-		elements: make([]T, size),
-		shape:    dimensions,
-	}
+	return &Tensor[T]{elements: make([]T, size), shape: shape}, nil
 }
 
-func (t *Tensor[T]) Rand() {
-	randFunc := randFuncFor(t)
+func Ones[T constraints.Number](shape []uint) (*Tensor[T], error) {
+	t, err := Zeros[T](shape)
+	if err != nil {
+		return nil, err
+	}
+
+	one := T(1)
+	for i := 0; i < len(t.elements); i++ {
+		t.elements[i] = one
+	}
+
+	return t, nil
+}
+
+func Rand[T constraints.Number](shape []uint) (*Tensor[T], error) {
+	t, err := Zeros[T](shape)
+	if err != nil {
+		return nil, err
+	}
+
+	randFunc := randFuncFor(T(0))
 	for i := 0; i < len(t.elements); i++ {
 		t.elements[i] = randFunc()
 	}
+
+	return t, nil
 }
 
 func (t *Tensor[T]) Elements() []T {
@@ -69,8 +85,8 @@ func (t *Tensor[T]) String() string {
 	return fmt.Sprint(arr)
 }
 
-func randFuncFor[T constraints.Number](t *Tensor[T]) func() T {
-	switch reflect.ValueOf(T(0)).Kind() {
+func randFuncFor[T constraints.Number](zero T) func() T {
+	switch reflect.ValueOf(zero).Kind() {
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint:
 		return func() T { return T(rand.Uint32()) }
 	case reflect.Uint64:
