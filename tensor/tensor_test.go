@@ -74,3 +74,25 @@ func TestTensorToString(t *testing.T) {
 		t.Errorf("%s: expected=%s actual=%s", t.Name(), expected, actual)
 	}
 }
+
+func TestTranspose(t *testing.T) {
+	t1, err := tensor.Rand[float32]([]uint{3, 2})
+	if err != nil {
+		t.Errorf("%s: %v", t.Name(), err)
+	}
+
+	t2, err := t1.Transpose()
+	if err != nil {
+		t.Errorf("%s: %v", t.Name(), err)
+	}
+
+	for i := uint(0); i < 3; i++ {
+		for j := uint(0); j < 2; j++ {
+			a, _ := t1.Get(i, j)
+			b, _ := t2.Get(j, i)
+			if a != b {
+				t.Errorf("%s: elements not transposed correctly", t.Name())
+			}
+		}
+	}
+}

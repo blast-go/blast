@@ -110,6 +110,49 @@ func (t *Tensor[T]) String() string {
 	return fmt.Sprint(arr)
 }
 
+// Transpose returns a new transposed Tensor over the first two dimensions. If
+// the tensor has more than two dimensions would return an error.
+func (t *Tensor[T]) Transpose() (*Tensor[T], error) {
+	if len(t.shape) != 2 {
+		return nil, fmt.Errorf("transpose only work for two dimensional tensors")
+	}
+
+	w := t.shape[0]
+	h := t.shape[1]
+
+	shape := []uint{h, w}
+	elements := make([]T, len(t.elements))
+
+	for i := uint(0); i < w; i++ {
+		for j := uint(0); j < h; j++ {
+			elements[j+i*h] = t.elements[i+j*w]
+		}
+	}
+
+	return &Tensor[T]{elements: elements, shape: shape}, nil
+}
+
+// Get returns a single element located at the coordinates provided by the
+// caller. Returns an error if the coordinates does not match the shape of
+// the tensor.
+func (t *Tensor[T]) Get(cords ...uint) (T, error) {
+	if len(cords) != len(t.shape) {
+		return T(0), fmt.Errorf("coordinates do not match the shape of the tensor")
+	}
+
+	offset := uint(0)
+	prevSize := uint(1)
+	for i, size := range t.shape {
+		cord := cords[i]
+		if cord > size {
+			return T(0), fmt.Errorf("index at of bounds %d for size %d", cord, size)
+		}
+		offset += cord * prevSize
+		prevSize = size
+	}
+	return t.elements[offset], nil
+}
+
 func randFuncFor[T constraints.Number](zero T) func() T {
 	switch reflect.ValueOf(zero).Kind() {
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint:
