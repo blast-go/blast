@@ -8,11 +8,34 @@ import (
 	"github.com/blast-go/blast/constraints"
 )
 
+// Tensor is the basic type that stores values over N dimensions.
 type Tensor[T constraints.Number] struct {
 	elements []T
 	shape    []uint
 }
 
+// New returns a new Tensor of the shape, numeric type and the elements are
+// specified by the caller. Returns an error if the number of elements provided
+// does not match the number of elements corresponding to its shape.
+func New[T constraints.Number](shape []uint, elements []T) (*Tensor[T], error) {
+	size := 1
+	for i, d := range shape {
+		if d == 0 {
+			return nil, fmt.Errorf("dimension %d can't be zero", i)
+		}
+		size *= int(d)
+	}
+
+	if len(elements) != size {
+		return nil, fmt.Errorf("invalid number of elements expected=%d got=%d", size, len(elements))
+	}
+
+	return &Tensor[T]{elements: elements, shape: shape}, nil
+}
+
+// Zeros returns a new Tensor of the shape and numeric type specified by the
+// caller in which all its elements are set to zero. If any dimension is set
+// to zero the function will return an error.
 func Zeros[T constraints.Number](shape []uint) (*Tensor[T], error) {
 	size := 1
 	for i, d := range shape {
@@ -25,6 +48,9 @@ func Zeros[T constraints.Number](shape []uint) (*Tensor[T], error) {
 	return &Tensor[T]{elements: make([]T, size), shape: shape}, nil
 }
 
+// Ones returns a new Tensor of the shape and numeric type specified by the
+// caller in which all its elements are set to one. If any dimension is set
+// to zero the function will return an error.
 func Ones[T constraints.Number](shape []uint) (*Tensor[T], error) {
 	t, err := Zeros[T](shape)
 	if err != nil {
@@ -39,6 +65,11 @@ func Ones[T constraints.Number](shape []uint) (*Tensor[T], error) {
 	return t, nil
 }
 
+// Rand returns a new Tensor of the shape and numeric type specified by the
+// caller in which all its elements are random numbers. For integer types
+// (uintX, intX) the full range is used, for floating point types (floatX)
+// the generated numbers are in the range zero to one. If any dimension is set
+// to zero the function will return an error.
 func Rand[T constraints.Number](shape []uint) (*Tensor[T], error) {
 	t, err := Zeros[T](shape)
 	if err != nil {
@@ -53,18 +84,12 @@ func Rand[T constraints.Number](shape []uint) (*Tensor[T], error) {
 	return t, nil
 }
 
+// Elements returns all elements of the tensor as a slice of the tensor type.
 func (t *Tensor[T]) Elements() []T {
 	return t.elements
 }
 
-func (t *Tensor[T]) SetElements(elements []T) error {
-	if len(elements) != len(t.elements) {
-		return fmt.Errorf("size mismatch expected=%d got=%d", len(t.elements), len(elements))
-	}
-	t.elements = elements
-	return nil
-}
-
+// Returns an string representing the current tensor.
 func (t *Tensor[T]) String() string {
 	var arr []any = make([]any, len(t.elements))
 

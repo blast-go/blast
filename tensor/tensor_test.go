@@ -64,11 +64,10 @@ func TestRandomTensor(t *testing.T) {
 }
 
 func TestTensorToString(t *testing.T) {
-	t1, err := tensor.Zeros[uint8]([]uint{3, 2})
+	t1, err := tensor.New([]uint{3, 2}, []uint8{1, 2, 3, 4, 5, 6})
 	if err != nil {
 		t.Errorf("%s: %v", t.Name(), err)
 	}
-	t1.SetElements([]uint8{1, 2, 3, 4, 5, 6})
 	expected := "[[1 2 3] [4 5 6]]"
 	actual := t1.String()
 	if actual != expected {
