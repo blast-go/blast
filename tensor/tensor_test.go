@@ -1,8 +1,10 @@
 package tensor_test
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/blast-go/blast/constraints"
 	"github.com/blast-go/blast/tensor"
 )
 
@@ -83,47 +85,43 @@ func TestTranspose(t *testing.T) {
 func TestAdd(t *testing.T) {
 	t1 := tensor.New([]uint{2, 2, 2}, []uint16{1, 2, 3, 4, 5, 6, 7, 8})
 	t2 := tensor.New([]uint{2, 2, 2}, []uint16{8, 7, 6, 5, 4, 3, 2, 1})
-	t3 := t1.Add(t2)
-	expected := []uint16{9, 9, 9, 9, 9, 9, 9, 9}
-	if len(t3.Elements()) != len(expected) {
-		t.Errorf("%s: Add failed", t.Name())
-	}
 
-	for i := 0; i < len(t3.Elements()); i++ {
-		if t3.Elements()[i] != expected[i] {
-			t.Errorf("%s: Add failed expected=%d got=%d", t.Name(), expected[i], t3.Elements()[i])
-		}
+	if ok, err := equal(t1.Add(t2), []uint16{9, 9, 9, 9, 9, 9, 9, 9}); !ok {
+		t.Errorf("%s: Add failed: %v", t.Name(), err)
 	}
 }
 
 func TestSub(t *testing.T) {
 	t1 := tensor.New([]uint{1, 8}, []int64{1, 2, 3, 4, 5, 6, 7, 8})
 	t2 := tensor.New([]uint{1, 8}, []int64{8, 7, 6, 5, 4, 3, 2, 1})
-	t3 := t1.Sub(t2)
-	expected := []int64{-7, -5, -3, -1, 1, 3, 5, 7}
-	if len(t3.Elements()) != len(expected) {
-		t.Errorf("%s: Sub failed", t.Name())
-	}
 
-	for i := 0; i < len(t3.Elements()); i++ {
-		if t3.Elements()[i] != expected[i] {
-			t.Errorf("%s: Sub failed expected=%d got=%d", t.Name(), expected[i], t3.Elements()[i])
-		}
+	if ok, err := equal(t1.Sub(t2), []int64{-7, -5, -3, -1, 1, 3, 5, 7}); !ok {
+		t.Errorf("%s: Sub failed: %v", t.Name(), err)
 	}
 }
 
 func TestMatMul(t *testing.T) {
 	t1 := tensor.New([]uint{3, 2}, []int16{1, 2, 3, 4, 5, 6})
 	t2 := tensor.New([]uint{2, 3}, []int16{7, 8, 9, 10, 11, 12})
-	t3 := t1.MatMul(t2)
-	expected := []int16{58, 64, 139, 154}
 
-	if len(t3.Elements()) != len(expected) {
-		t.Errorf("%s: MatMul failed", t.Name())
+	if ok, err := equal(t1.MatMul(t2), []int16{58, 64, 139, 154}); !ok {
+		t.Errorf("%s: MatMul failed: %v", t.Name(), err)
 	}
-	for i := 0; i < len(t3.Elements()); i++ {
-		if t3.Elements()[i] != expected[i] {
-			t.Errorf("%s: MatMul failed expected=%d got=%d", t.Name(), expected[i], t3.Elements()[i])
+
+	if ok, err := equal(t2.MatMul(t1), []int16{39, 54, 69, 49, 68, 87, 59, 82, 105}); !ok {
+		t.Errorf("%s: MatMul failed: %v", t.Name(), err)
+	}
+}
+
+func equal[T constraints.Number](t *tensor.Tensor[T], expected []T) (bool, error) {
+	if len(t.Elements()) != len(expected) {
+		return false, fmt.Errorf("length mismatch expected=%d got=%d", len(expected), len(t.Elements()))
+	}
+
+	for i := 0; i < len(expected); i++ {
+		if t.Elements()[i] != expected[i] {
+			return false, fmt.Errorf("element does not match expected=%v got=%v", expected[i], t.Elements()[i])
 		}
 	}
+	return true, nil
 }
