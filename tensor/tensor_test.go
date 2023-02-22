@@ -74,8 +74,56 @@ func TestTranspose(t *testing.T) {
 	for i := uint(0); i < 3; i++ {
 		for j := uint(0); j < 2; j++ {
 			if t1.Get(i, j) != t2.Get(j, i) {
-				t.Errorf("%s: elements not transposed correctly", t.Name())
+				t.Errorf("%s: transpose failed", t.Name())
 			}
+		}
+	}
+}
+
+func TestAdd(t *testing.T) {
+	t1 := tensor.New([]uint{2, 2, 2}, []uint16{1, 2, 3, 4, 5, 6, 7, 8})
+	t2 := tensor.New([]uint{2, 2, 2}, []uint16{8, 7, 6, 5, 4, 3, 2, 1})
+	t3 := t1.Add(t2)
+	expected := []uint16{9, 9, 9, 9, 9, 9, 9, 9}
+	if len(t3.Elements()) != len(expected) {
+		t.Errorf("%s: Add failed", t.Name())
+	}
+
+	for i := 0; i < len(t3.Elements()); i++ {
+		if t3.Elements()[i] != expected[i] {
+			t.Errorf("%s: Add failed expected=%d got=%d", t.Name(), expected[i], t3.Elements()[i])
+		}
+	}
+}
+
+func TestSub(t *testing.T) {
+	t1 := tensor.New([]uint{1, 8}, []int64{1, 2, 3, 4, 5, 6, 7, 8})
+	t2 := tensor.New([]uint{1, 8}, []int64{8, 7, 6, 5, 4, 3, 2, 1})
+	t3 := t1.Sub(t2)
+	expected := []int64{-7, -5, -3, -1, 1, 3, 5, 7}
+	if len(t3.Elements()) != len(expected) {
+		t.Errorf("%s: Sub failed", t.Name())
+	}
+
+	for i := 0; i < len(t3.Elements()); i++ {
+		if t3.Elements()[i] != expected[i] {
+			t.Errorf("%s: Sub failed expected=%d got=%d", t.Name(), expected[i], t3.Elements()[i])
+		}
+	}
+}
+
+func TestMatMul(t *testing.T) {
+	t1 := tensor.New([]uint{3, 2}, []int16{1, 2, 3, 4, 5, 6})
+	t2 := tensor.New([]uint{2, 3}, []int16{7, 8, 9, 10, 11, 12})
+	t3 := t1.MatMul(t2)
+	expected := []int16{58, 64, 139, 154}
+
+	if len(t3.Elements()) != len(expected) {
+		t.Errorf("%s: MatMul failed", t.Name())
+	}
+	for i := 0; i < len(t3.Elements()); i++ {
+		if t3.Elements()[i] != expected[i] {
+			t.Errorf("%s: MatMul failed expected=%d got=%d", t.Name(), expected[i], t3.Elements()[i])
 		}
 	}
 }
