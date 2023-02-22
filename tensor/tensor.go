@@ -15,73 +15,67 @@ type Tensor[T constraints.Number] struct {
 }
 
 // New returns a new Tensor of the shape, numeric type and the elements are
-// specified by the caller. Returns an error if the number of elements provided
+// specified by the caller. Panics if the number of elements provided
 // does not match the number of elements corresponding to its shape.
-func New[T constraints.Number](shape []uint, elements []T) (*Tensor[T], error) {
+func New[T constraints.Number](shape []uint, elements []T) *Tensor[T] {
 	size := 1
 	for i, d := range shape {
 		if d == 0 {
-			return nil, fmt.Errorf("dimension %d can't be zero", i)
+			panic(fmt.Sprintf("dimension %d can't be zero", i))
 		}
 		size *= int(d)
 	}
 
 	if len(elements) != size {
-		return nil, fmt.Errorf("invalid number of elements expected=%d got=%d", size, len(elements))
+		panic(fmt.Sprintf("invalid number of elements expected=%d got=%d", size, len(elements)))
 	}
 
-	return &Tensor[T]{elements: elements, shape: shape}, nil
+	return &Tensor[T]{elements: elements, shape: shape}
 }
 
 // Zeros returns a new Tensor of the shape and numeric type specified by the
 // caller in which all its elements are set to zero. If any dimension is set
-// to zero the function will return an error.
-func Zeros[T constraints.Number](shape []uint) (*Tensor[T], error) {
+// to zero the function will panic.
+func Zeros[T constraints.Number](shape []uint) *Tensor[T] {
 	size := 1
 	for i, d := range shape {
 		if d == 0 {
-			return nil, fmt.Errorf("dimension %d can't be zero", i)
+			panic(fmt.Sprintf("dimension %d can't be zero", i))
 		}
 		size *= int(d)
 	}
 
-	return &Tensor[T]{elements: make([]T, size), shape: shape}, nil
+	return &Tensor[T]{elements: make([]T, size), shape: shape}
 }
 
 // Ones returns a new Tensor of the shape and numeric type specified by the
 // caller in which all its elements are set to one. If any dimension is set
-// to zero the function will return an error.
-func Ones[T constraints.Number](shape []uint) (*Tensor[T], error) {
-	t, err := Zeros[T](shape)
-	if err != nil {
-		return nil, err
-	}
+// to zero the function will panic.
+func Ones[T constraints.Number](shape []uint) *Tensor[T] {
+	t := Zeros[T](shape)
 
 	one := T(1)
 	for i := 0; i < len(t.elements); i++ {
 		t.elements[i] = one
 	}
 
-	return t, nil
+	return t
 }
 
 // Rand returns a new Tensor of the shape and numeric type specified by the
 // caller in which all its elements are random numbers. For integer types
 // (uintX, intX) the full range is used, for floating point types (floatX)
 // the generated numbers are in the range zero to one. If any dimension is set
-// to zero the function will return an error.
-func Rand[T constraints.Number](shape []uint) (*Tensor[T], error) {
-	t, err := Zeros[T](shape)
-	if err != nil {
-		return nil, err
-	}
+// to zero the function will panic.
+func Rand[T constraints.Number](shape []uint) *Tensor[T] {
+	t := Zeros[T](shape)
 
 	randFunc := randFuncFor(T(0))
 	for i := 0; i < len(t.elements); i++ {
 		t.elements[i] = randFunc()
 	}
 
-	return t, nil
+	return t
 }
 
 // Elements returns all elements of the tensor as a slice of the tensor type.
@@ -111,10 +105,10 @@ func (t *Tensor[T]) String() string {
 }
 
 // Transpose returns a new transposed Tensor over the first two dimensions. If
-// the tensor has more than two dimensions would return an error.
-func (t *Tensor[T]) Transpose() (*Tensor[T], error) {
+// the tensor has more than two dimensions would panic.
+func (t *Tensor[T]) Transpose() *Tensor[T] {
 	if len(t.shape) != 2 {
-		return nil, fmt.Errorf("transpose only work for two dimensional tensors")
+		panic("transpose only work for two dimensional tensors")
 	}
 
 	w := t.shape[0]
@@ -129,15 +123,14 @@ func (t *Tensor[T]) Transpose() (*Tensor[T], error) {
 		}
 	}
 
-	return &Tensor[T]{elements: elements, shape: shape}, nil
+	return &Tensor[T]{elements: elements, shape: shape}
 }
 
 // Get returns a single element located at the coordinates provided by the
-// caller. Returns an error if the coordinates does not match the shape of
-// the tensor.
-func (t *Tensor[T]) Get(cords ...uint) (T, error) {
+// caller. Panics if the coordinates are out of bounds.
+func (t *Tensor[T]) Get(cords ...uint) T {
 	if len(cords) != len(t.shape) {
-		return T(0), fmt.Errorf("coordinates do not match the shape of the tensor")
+		panic("coordinates out of not match the shape of the tensor")
 	}
 
 	offset := uint(0)
@@ -145,12 +138,12 @@ func (t *Tensor[T]) Get(cords ...uint) (T, error) {
 	for i, size := range t.shape {
 		cord := cords[i]
 		if cord > size {
-			return T(0), fmt.Errorf("index at of bounds %d for size %d", cord, size)
+			panic(fmt.Sprintf("index out of bounds %d for size %d", cord, size))
 		}
 		offset += cord * prevSize
 		prevSize = size
 	}
-	return t.elements[offset], nil
+	return t.elements[offset]
 }
 
 func randFuncFor[T constraints.Number](zero T) func() T {

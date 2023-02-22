@@ -7,16 +7,15 @@ import (
 )
 
 func TestInvalidDimension(t *testing.T) {
-	_, err := tensor.Zeros[int]([]uint{1, 0})
-	if err == nil {
-		t.Errorf("%s: should have failed due to invalid dimension", t.Name())
-	}
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("%s: should have failed due to invalid dimension", t.Name())
+		}
+	}()
+	tensor.Zeros[int]([]uint{1, 0})
 }
 func TestZerosTensor(t *testing.T) {
-	t1, err := tensor.Zeros[int]([]uint{2, 2})
-	if err != nil {
-		t.Errorf("%s: %v", t.Name(), err)
-	}
+	t1 := tensor.Zeros[int]([]uint{2, 2})
 
 	actual := len(t1.Elements())
 	if actual != 4 {
@@ -32,10 +31,7 @@ func TestZerosTensor(t *testing.T) {
 }
 
 func TestOnesTensor(t *testing.T) {
-	t1, err := tensor.Ones[float32]([]uint{2, 2})
-	if err != nil {
-		t.Errorf("%s: %v", t.Name(), err)
-	}
+	t1 := tensor.Ones[float32]([]uint{2, 2})
 
 	for _, e := range t1.Elements() {
 		if e != 1 {
@@ -46,10 +42,8 @@ func TestOnesTensor(t *testing.T) {
 }
 
 func TestRandomTensor(t *testing.T) {
-	t1, err := tensor.Rand[float32]([]uint{10})
-	if err != nil {
-		t.Errorf("%s: %v", t.Name(), err)
-	}
+	t1 := tensor.Rand[float32]([]uint{10})
+
 	all := t1.Elements()
 	first := all[0]
 	equal := true
@@ -64,10 +58,8 @@ func TestRandomTensor(t *testing.T) {
 }
 
 func TestTensorToString(t *testing.T) {
-	t1, err := tensor.New([]uint{3, 2}, []uint8{1, 2, 3, 4, 5, 6})
-	if err != nil {
-		t.Errorf("%s: %v", t.Name(), err)
-	}
+	t1 := tensor.New([]uint{3, 2}, []uint8{1, 2, 3, 4, 5, 6})
+
 	expected := "[[1 2 3] [4 5 6]]"
 	actual := t1.String()
 	if actual != expected {
@@ -76,21 +68,12 @@ func TestTensorToString(t *testing.T) {
 }
 
 func TestTranspose(t *testing.T) {
-	t1, err := tensor.Rand[float32]([]uint{3, 2})
-	if err != nil {
-		t.Errorf("%s: %v", t.Name(), err)
-	}
-
-	t2, err := t1.Transpose()
-	if err != nil {
-		t.Errorf("%s: %v", t.Name(), err)
-	}
+	t1 := tensor.Rand[float32]([]uint{3, 2})
+	t2 := t1.Transpose()
 
 	for i := uint(0); i < 3; i++ {
 		for j := uint(0); j < 2; j++ {
-			a, _ := t1.Get(i, j)
-			b, _ := t2.Get(j, i)
-			if a != b {
+			if t1.Get(i, j) != t2.Get(j, i) {
 				t.Errorf("%s: elements not transposed correctly", t.Name())
 			}
 		}
