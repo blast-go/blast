@@ -100,7 +100,7 @@ func TestSub(t *testing.T) {
 	}
 }
 
-func TestMatMul(t *testing.T) {
+func TestMatMul2D(t *testing.T) {
 	t1 := tensor.New([]uint{3, 2}, []int16{1, 2, 3, 4, 5, 6})
 	t2 := tensor.New([]uint{2, 3}, []int16{7, 8, 9, 10, 11, 12})
 
@@ -111,6 +111,12 @@ func TestMatMul(t *testing.T) {
 	if ok, err := equal(t2.MatMul(t1), []int16{39, 54, 69, 49, 68, 87, 59, 82, 105}); !ok {
 		t.Errorf("%s: MatMul failed: %v", t.Name(), err)
 	}
+
+	t3 := tensor.New([]uint{1, 2}, []int16{1, 4})
+	if ok, err := equal(t2.MatMul(t3), []int16{39, 49, 59}); !ok {
+		t.Errorf("%s: MatMul failed: %v", t.Name(), err)
+	}
+
 }
 
 func equal[T constraints.Number](t *tensor.Tensor[T], expected []T) (bool, error) {

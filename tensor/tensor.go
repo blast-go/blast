@@ -204,16 +204,17 @@ func (t *Tensor[T]) MatMul(other *Tensor[T]) *Tensor[T] {
 
 	tT := other.Transpose()
 
-	w := t.shape[0]
-	h := t.shape[1]
+	w1 := t.shape[0]
+	h1 := t.shape[1]
+	w2 := other.shape[0]
 
-	shape := []uint{h, h}
-	elements := make([]T, h*h)
+	shape := []uint{w2, h1}
+	elements := make([]T, w2*h1)
 
-	for i := uint(0); i < h; i++ {
-		for j := uint(0); j < h; j++ {
-			for k := uint(0); k < w; k++ {
-				elements[i*h+j] += t.elements[i*w+k] * tT.elements[j*w+k]
+	for i := uint(0); i < h1; i++ {
+		for j := uint(0); j < w2; j++ {
+			for k := uint(0); k < w1; k++ {
+				elements[i*w2+j] += t.elements[i*w1+k] * tT.elements[j*w1+k]
 			}
 		}
 	}
