@@ -11,13 +11,16 @@ import (
 // Tensor is the basic type that stores values over N dimensions.
 type Tensor[T constraints.Number] struct {
 	elements []T
-	shape    []uint
+	shape    Shape
+	forward  func() []T
 }
+
+type Shape = []uint
 
 // New returns a new Tensor of the shape, numeric type and the elements are
 // specified by the caller. Panics if the number of elements provided
 // does not match the number of elements corresponding to its shape.
-func New[T constraints.Number](shape []uint, elements []T) *Tensor[T] {
+func New[T constraints.Number](shape Shape, elements []T) *Tensor[T] {
 	size := 1
 	for i, d := range shape {
 		if d == 0 {
@@ -36,7 +39,7 @@ func New[T constraints.Number](shape []uint, elements []T) *Tensor[T] {
 // Zeros returns a new Tensor of the shape and numeric type specified by the
 // caller in which all its elements are set to zero. If any dimension is set
 // to zero the function will panic.
-func Zeros[T constraints.Number](shape []uint) *Tensor[T] {
+func Zeros[T constraints.Number](shape Shape) *Tensor[T] {
 	size := 1
 	for i, d := range shape {
 		if d == 0 {
@@ -51,7 +54,7 @@ func Zeros[T constraints.Number](shape []uint) *Tensor[T] {
 // Ones returns a new Tensor of the shape and numeric type specified by the
 // caller in which all its elements are set to one. If any dimension is set
 // to zero the function will panic.
-func Ones[T constraints.Number](shape []uint) *Tensor[T] {
+func Ones[T constraints.Number](shape Shape) *Tensor[T] {
 	t := Zeros[T](shape)
 
 	one := T(1)
@@ -67,7 +70,7 @@ func Ones[T constraints.Number](shape []uint) *Tensor[T] {
 // (uintX, intX) the full range is used, for floating point types (floatX)
 // the generated numbers are in the range zero to one. If any dimension is set
 // to zero the function will panic.
-func Rand[T constraints.Number](shape []uint) *Tensor[T] {
+func Rand[T constraints.Number](shape Shape) *Tensor[T] {
 	t := Zeros[T](shape)
 
 	randFunc := randFuncFor(T(0))
@@ -78,9 +81,21 @@ func Rand[T constraints.Number](shape []uint) *Tensor[T] {
 	return t
 }
 
+func Op[T constraints.Number](shape Shape, forward func() []T) *Tensor[T] {
+	return &Tensor[T]{shape: shape, forward: forward}
+}
+
 // Elements returns all elements of the tensor as a slice of the tensor type.
 func (t *Tensor[T]) Elements() []T {
+	if t.elements == nil && t.forward != nil {
+		t.elements = t.forward()
+	}
 	return t.elements
+}
+
+// Shape returns the shape of the tensor.
+func (t *Tensor[T]) Shape() Shape {
+	return t.shape
 }
 
 // Returns an string representing the current tensor.
@@ -114,7 +129,7 @@ func (t *Tensor[T]) Transpose() *Tensor[T] {
 	w := t.shape[0]
 	h := t.shape[1]
 
-	shape := []uint{h, w}
+	shape := Shape{h, w}
 	elements := make([]T, len(t.elements))
 
 	for i := uint(0); i < w; i++ {
@@ -144,82 +159,6 @@ func (t *Tensor[T]) Get(cords ...uint) T {
 		prevSize = size
 	}
 	return t.elements[offset]
-}
-
-// Returns a new Tensor that is the result of adding the two tensors on element
-// by element. Panics if the two tensors do not have the same shape.
-func (t *Tensor[T]) Add(other *Tensor[T]) *Tensor[T] {
-	if len(t.shape) != len(other.shape) {
-		panic("tensors must have the same shape")
-	}
-
-	for i := 0; i < len(t.shape); i++ {
-		if t.shape[i] != other.shape[i] {
-			panic("tensors must have the same shape")
-		}
-	}
-
-	shape := make([]uint, len(t.shape))
-	copy(shape, t.shape)
-
-	size := len(t.elements)
-	elements := make([]T, size)
-	for i := 0; i < size; i++ {
-		elements[i] = t.elements[i] + other.elements[i]
-	}
-	return &Tensor[T]{elements: elements, shape: shape}
-}
-
-// Returns a new Tensor that is the result of subtracting the two tensors on
-// element by element. Panics if the two tensors do not have the same shape.
-func (t *Tensor[T]) Sub(other *Tensor[T]) *Tensor[T] {
-	if len(t.shape) != len(other.shape) {
-		panic("tensors must have the same shape")
-	}
-
-	for i := 0; i < len(t.shape); i++ {
-		if t.shape[i] != other.shape[i] {
-			panic("tensors must have the same shape")
-		}
-	}
-
-	shape := make([]uint, len(t.shape))
-	copy(shape, t.shape)
-
-	size := len(t.elements)
-	elements := make([]T, size)
-	for i := 0; i < size; i++ {
-		elements[i] = t.elements[i] - other.elements[i]
-	}
-	return &Tensor[T]{elements: elements, shape: shape}
-}
-
-// Returns a new Tensor that is the result of matrix multiplication of the two
-// input tensors. Panics if the shape of the two tensors is incompatible or if
-// any of the input tensors are of order different than 2.
-func (t *Tensor[T]) MatMul(other *Tensor[T]) *Tensor[T] {
-	if len(t.shape) != 2 || len(other.shape) != 2 {
-		panic("cannot do matrix multiplication on tensor of higher order")
-	}
-
-	tT := other.Transpose()
-
-	w1 := t.shape[0]
-	h1 := t.shape[1]
-	w2 := other.shape[0]
-
-	shape := []uint{w2, h1}
-	elements := make([]T, w2*h1)
-
-	for i := uint(0); i < h1; i++ {
-		for j := uint(0); j < w2; j++ {
-			for k := uint(0); k < w1; k++ {
-				elements[i*w2+j] += t.elements[i*w1+k] * tT.elements[j*w1+k]
-			}
-		}
-	}
-
-	return &Tensor[T]{elements: elements, shape: shape}
 }
 
 func randFuncFor[T constraints.Number](zero T) func() T {
