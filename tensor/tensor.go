@@ -8,13 +8,20 @@ import (
 	"github.com/blast-go/blast/constraints"
 )
 
+type BackwardFunc[T constraints.Number] func(*Tensor[T])
+type ForwardFunc[T constraints.Number] func() []T
+
 // Tensor is the basic type that stores values over N dimensions.
 type Tensor[T constraints.Number] struct {
-	elements []T
 	shape    Shape
-	forward  func() []T
+	elements []T
+	grad     []T
+	parents  []*Tensor[T]
+	forward  ForwardFunc[T]
+	backward BackwardFunc[T]
 }
 
+// Type to describe the shape of a tensor.
 type Shape = []uint
 
 // New returns a new Tensor of the shape, numeric type and the elements are
@@ -34,6 +41,18 @@ func New[T constraints.Number](shape Shape, elements []T) *Tensor[T] {
 	}
 
 	return &Tensor[T]{elements: elements, shape: shape}
+}
+
+// Empty returns a new Tensor of the given shape specified by the caller but
+// doesn't allocate memory for the elements. If any dimension is set to zero
+// the function will panic.
+func Empty[T constraints.Number](shape Shape) *Tensor[T] {
+	for i, d := range shape {
+		if d == 0 {
+			panic(fmt.Sprintf("dimension %d can't be zero", i))
+		}
+	}
+	return &Tensor[T]{shape: shape}
 }
 
 // Zeros returns a new Tensor of the shape and numeric type specified by the
@@ -81,8 +100,8 @@ func Rand[T constraints.Number](shape Shape) *Tensor[T] {
 	return t
 }
 
-func Op[T constraints.Number](shape Shape, forward func() []T) *Tensor[T] {
-	return &Tensor[T]{shape: shape, forward: forward}
+func Op[T constraints.Number](shape Shape, parents []*Tensor[T], forward ForwardFunc[T], backward BackwardFunc[T]) *Tensor[T] {
+	return &Tensor[T]{shape: shape, parents: parents, forward: forward, backward: backward}
 }
 
 // Elements returns all elements of the tensor as a slice of the tensor type.
@@ -91,6 +110,18 @@ func (t *Tensor[T]) Elements() []T {
 		t.elements = t.forward()
 	}
 	return t.elements
+}
+
+// Grad returns all gradients of the tensor as a slice of float64.
+func (t *Tensor[T]) Grad() []T {
+	if t.grad == nil {
+		size := 1
+		for _, s := range t.shape {
+			size *= int(s)
+		}
+		t.grad = make([]T, size)
+	}
+	return t.grad
 }
 
 // Shape returns the shape of the tensor.
@@ -119,28 +150,6 @@ func (t *Tensor[T]) String() string {
 	return fmt.Sprint(arr)
 }
 
-// Transpose returns a new transposed Tensor over the first two dimensions. If
-// the tensor has more than two dimensions would panic.
-func (t *Tensor[T]) Transpose() *Tensor[T] {
-	if len(t.shape) != 2 {
-		panic("transpose only work for two dimensional tensors")
-	}
-
-	w := t.shape[0]
-	h := t.shape[1]
-
-	shape := Shape{h, w}
-	elements := make([]T, len(t.elements))
-
-	for i := uint(0); i < w; i++ {
-		for j := uint(0); j < h; j++ {
-			elements[j+i*h] = t.elements[i+j*w]
-		}
-	}
-
-	return &Tensor[T]{elements: elements, shape: shape}
-}
-
 // Get returns a single element located at the coordinates provided by the
 // caller. Panics if the coordinates are out of bounds.
 func (t *Tensor[T]) Get(cords ...uint) T {
@@ -158,7 +167,64 @@ func (t *Tensor[T]) Get(cords ...uint) T {
 		offset += cord * prevSize
 		prevSize = size
 	}
-	return t.elements[offset]
+	return t.Elements()[offset]
+}
+
+// Returns true if the two tensors have the same shape and elements, returns
+// false otherwise.
+func Equal[T constraints.Number](t1, t2 *Tensor[T]) bool {
+	if !EqualShape(t1, t2) {
+		return false
+	}
+
+	t1Elements := t1.Elements()
+	t2Elements := t2.Elements()
+	for i := 0; i < len(t1Elements); i++ {
+		if t1Elements[i] != t2Elements[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Backward performs a back propagation pass for the entire computation graph.
+// This should be called on the output of node of a graph.
+func (t *Tensor[T]) Backward() {
+	visited := make(map[*Tensor[T]]struct{})
+	grad := t.Grad()
+	for i := 0; i < len(grad); i++ {
+		grad[i] = 1
+	}
+	applyBackward(t, visited)
+}
+
+func applyBackward[T constraints.Number](t *Tensor[T], visited map[*Tensor[T]]struct{}) {
+	if _, ok := visited[t]; !ok {
+		visited[t] = struct{}{}
+		if t.backward != nil {
+			t.backward(t)
+		}
+		for _, p := range t.parents {
+			applyBackward(p, visited)
+		}
+	}
+}
+
+// Returns true if the two tensors have the same shape, returns false otherwise.
+func EqualShape[T constraints.Number](t1, t2 *Tensor[T]) bool {
+	t1Shape := t1.Shape()
+	t2Shape := t2.Shape()
+	if len(t1Shape) != len(t2Shape) {
+		return false
+	}
+
+	for i := 0; i < len(t1Shape); i++ {
+		if t1Shape[i] != t2Shape[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func randFuncFor[T constraints.Number](zero T) func() T {

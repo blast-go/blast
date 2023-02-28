@@ -9,4 +9,5 @@ type Device[T constraints.Number] interface {
 	Add(*tensor.Tensor[T], *tensor.Tensor[T]) *tensor.Tensor[T]
 	Sub(*tensor.Tensor[T], *tensor.Tensor[T]) *tensor.Tensor[T]
 	MatMul(*tensor.Tensor[T], *tensor.Tensor[T]) *tensor.Tensor[T]
+	Transpose(*tensor.Tensor[T]) *tensor.Tensor[T]
 }
