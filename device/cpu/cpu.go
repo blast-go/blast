@@ -1,6 +1,8 @@
 package cpu
 
 import (
+	"math"
+
 	"github.com/blast-go/blast/constraints"
 	"github.com/blast-go/blast/tensor"
 )
@@ -64,9 +66,9 @@ func (c CPU[T]) Add(t1, t2 *tensor.Tensor[T]) *tensor.Tensor[T] {
 	parents := []*tensor.Tensor[T]{t1, t2}
 	var backward tensor.BackwardFunc[T]
 	if c.grad {
-		t1Grad := t1.Grad()
-		t2Grad := t2.Grad()
 		backward = func(t *tensor.Tensor[T]) {
+			t1Grad := t1.Grad()
+			t2Grad := t2.Grad()
 			grad := t.Grad()
 			for i, g := range grad {
 				t1Grad[i] += g
@@ -102,9 +104,9 @@ func (c CPU[T]) Sub(t1, t2 *tensor.Tensor[T]) *tensor.Tensor[T] {
 	parents := []*tensor.Tensor[T]{t1, t2}
 	var backward tensor.BackwardFunc[T]
 	if c.grad {
-		t1Grad := t1.Grad()
-		t2Grad := t2.Grad()
 		backward = func(t *tensor.Tensor[T]) {
+			t1Grad := t1.Grad()
+			t2Grad := t2.Grad()
 			grad := t.Grad()
 			for i, g := range grad {
 				t1Grad[i] += g
@@ -201,6 +203,171 @@ func (c CPU[T]) Transpose(t *tensor.Tensor[T]) *tensor.Tensor[T] {
 	}
 
 	return tensor.Op(shape, parents, forward, backward)
+}
+
+// Tanh returns a new tensor with tanh activation function applied element-wise.
+func (c CPU[T]) Tanh(t *tensor.Tensor[T]) *tensor.Tensor[T] {
+	shape := t.Shape()
+	parents := []*tensor.Tensor[T]{t}
+
+	forward := func() []T {
+		tElements := t.Elements()
+		elements := make([]T, len(tElements))
+		for i, e := range tElements {
+			elements[i] = T(math.Tanh(float64(e)))
+		}
+		return elements
+	}
+
+	var backward tensor.BackwardFunc[T]
+	if c.grad {
+		backward = func(tout *tensor.Tensor[T]) {
+			toutGrad := tout.Grad()
+			tElements := t.Elements()
+			tGrad := t.Grad()
+			for i, g := range toutGrad {
+				tanh := math.Tanh(float64(tElements[i]))
+				tGrad[i] += T(1-tanh*tanh) * g
+			}
+		}
+	}
+
+	return tensor.Op(shape, parents, forward, backward)
+}
+
+// Sigmoid returns a new tensor with sigmoid activation function applied
+// element-wise.
+func (c CPU[T]) Sigmoid(t *tensor.Tensor[T]) *tensor.Tensor[T] {
+	shape := t.Shape()
+	parents := []*tensor.Tensor[T]{t}
+
+	forward := func() []T {
+		tElements := t.Elements()
+		elements := make([]T, len(tElements))
+		for i, e := range tElements {
+			elements[i] = T(1 / (1 + math.Exp(-float64(e))))
+		}
+		return elements
+	}
+
+	var backward tensor.BackwardFunc[T]
+	if c.grad {
+		backward = func(tOut *tensor.Tensor[T]) {
+			tOutGrad := tOut.Grad()
+			tOutElements := tOut.Elements()
+			tGrad := t.Grad()
+			for i, g := range tOutGrad {
+				tGrad[i] += g * tOutElements[i] * (1 - tOutElements[i])
+			}
+		}
+	}
+
+	return tensor.Op(shape, parents, forward, backward)
+}
+
+// ReLU returns a new tensor with ReLU activation function applied element-wise.
+func (c CPU[T]) ReLU(t *tensor.Tensor[T]) *tensor.Tensor[T] {
+	shape := t.Shape()
+	parents := []*tensor.Tensor[T]{t}
+
+	forward := func() []T {
+		tElements := t.Elements()
+		elements := make([]T, len(tElements))
+		for i, e := range tElements {
+			if e > 0 {
+				elements[i] = e
+			}
+		}
+		return elements
+	}
+
+	var backward tensor.BackwardFunc[T]
+	if c.grad {
+		backward = func(tout *tensor.Tensor[T]) {
+			toutElements := tout.Elements()
+			toutGrad := tout.Grad()
+			tGrad := t.Grad()
+			for i, g := range toutGrad {
+				if toutElements[i] > 0 {
+					tGrad[i] += g
+				}
+			}
+		}
+	}
+
+	return tensor.Op(shape, parents, forward, backward)
+}
+
+// PowInt returns a new tensor in which each element is raised to the power
+// of exp which is an unsigned integer.
+func (c CPU[T]) PowInt(t *tensor.Tensor[T], exp uint) *tensor.Tensor[T] {
+	shape := t.Shape()
+	parents := []*tensor.Tensor[T]{t}
+
+	forward := func() []T {
+		tElements := t.Elements()
+		elements := make([]T, len(tElements))
+		for i, e := range tElements {
+			elements[i] = powInt(e, exp)
+		}
+		return elements
+	}
+
+	var backward tensor.BackwardFunc[T]
+	if c.grad {
+		backward = func(tOut *tensor.Tensor[T]) {
+			tOutGrad := tOut.Grad()
+			tGrad := t.Grad()
+			tElements := t.Elements()
+			for i, g := range tOutGrad {
+				tGrad[i] += g * T(exp) * powInt(tElements[i], exp-1)
+			}
+		}
+	}
+
+	return tensor.Op(shape, parents, forward, backward)
+}
+
+// Mul returns a new tensor multiplied by scale element-wise.
+func (c CPU[T]) Mul(t *tensor.Tensor[T], scale T) *tensor.Tensor[T] {
+	shape := t.Shape()
+	parents := []*tensor.Tensor[T]{t}
+	forward := func() []T {
+		tElements := t.Elements()
+		elements := make([]T, len(tElements))
+		for i, e := range tElements {
+			elements[i] = e * scale
+		}
+		return elements
+	}
+	var backward tensor.BackwardFunc[T]
+	if c.grad {
+		backward = func(tOut *tensor.Tensor[T]) {
+			tOutGrad := tOut.Grad()
+			tGrad := t.Grad()
+
+			for i, g := range tOutGrad {
+				tGrad[i] += g * scale
+			}
+		}
+	}
+
+	return tensor.Op(shape, parents, forward, backward)
+}
+
+func powInt[T constraints.Number](n T, exponent uint) T {
+	switch exponent {
+	case 0:
+		return 1
+	case 1:
+		return n
+	default:
+		r := n
+		for j := uint(1); j < exponent; j++ {
+			r *= n
+		}
+		return r
+	}
 }
 
 func transpose[T constraints.Number](elements []T, w, h uint) []T {

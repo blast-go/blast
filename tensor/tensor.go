@@ -131,10 +131,11 @@ func (t *Tensor[T]) Shape() Shape {
 
 // Returns an string representing the current tensor.
 func (t *Tensor[T]) String() string {
-	var arr []any = make([]any, len(t.elements))
+	elements := t.Elements()
+	var arr []any = make([]any, len(elements))
 
-	for i := 0; i < len(t.elements); i++ {
-		arr[i] = t.elements[i]
+	for i := 0; i < len(elements); i++ {
+		arr[i] = elements[i]
 	}
 
 	for d := 0; d < len(t.shape)-1; d++ {
@@ -227,6 +228,24 @@ func EqualShape[T constraints.Number](t1, t2 *Tensor[T]) bool {
 	return true
 }
 
+func (t *Tensor[T]) ZeroGrad() {
+	visited := make(map[*Tensor[T]]struct{})
+	applyZeroGrad(t, visited)
+}
+
+func applyZeroGrad[T constraints.Number](t *Tensor[T], visited map[*Tensor[T]]struct{}) {
+	if _, ok := visited[t]; !ok {
+		visited[t] = struct{}{}
+		for i := 0; i < len(t.grad); i++ {
+			t.grad[i] = 0
+		}
+
+		for _, p := range t.parents {
+			applyZeroGrad(p, visited)
+		}
+	}
+}
+
 func randFuncFor[T constraints.Number](zero T) func() T {
 	switch reflect.ValueOf(zero).Kind() {
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint:
@@ -238,9 +257,9 @@ func randFuncFor[T constraints.Number](zero T) func() T {
 	case reflect.Int64:
 		return func() T { return T(rand.Int63()) }
 	case reflect.Float32:
-		return func() T { return T(rand.Float32()) }
+		return func() T { return T(rand.NormFloat64()) }
 	case reflect.Float64:
-		return func() T { return T(rand.Float64()) }
+		return func() T { return T(rand.NormFloat64()) }
 	default:
 		panic("Unsupported data type")
 	}
